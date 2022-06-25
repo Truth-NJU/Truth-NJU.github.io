@@ -1,0 +1,374 @@
+@[toc]
+# 部署前端项目
+1. 首先我们使用电脑本机下载安装gitlab runner，这里将本机称为服务器A。(==电脑本机为mac环境，不同操作系统下面的命令可能会有差别。==)
+2. 使用`gitlab-runner register  `命令在gitlab网站上注册gitlab runner，填入settings->CI/CD->Runners下的URL和token。结果如如下页面所示即为成功。
+  ![在这里插入图片描述](https://img-blog.csdnimg.cn/c39c7811e0d04b558992ccc4246f8973.png?x-oss-process=image/watermark,type_d3F5LXplbmhlaQ,shadow_50,text_Q1NETiBAVHJ1dGjjgIE=,size_20,color_FFFFFF,t_70,g_se,x_16#pic_center)
+3. 接下去需要一台远程服务器B，这里以腾讯云的ubuntu服务器为例子。腾讯云的的ubuntu服务器默认为ubuntu账户，我们需要对其进行配置，以切换为root账户。
+   - 使用用户名ubuntu登录后使用`sudo passwd root`命令，然后输入新的root密码并进行确认
+   - 修改ssh配置`sudo vi /etc/ssh/sshd_config`，将文件中的PermitRootLogin修改为yes
+   - 重启ssh服务`sudo service ssh restart`
+4. 配置服务器A和B之间的免密通道，即本机和远程服务器之间的免密通道。
+   - 使用`ssh-keygen -t rsa -b 2048 -C "<comment>"`命令，引号内可以填写邮箱地址。
+     - 执行后推荐使用默认的地址和名称来存储公钥和私钥（默认存储在~/.ssh/id_rsa和 ~/.ssh/id_rsa.pub下）
+     - ==不要在配置公钥的时候为公钥设置密码==，一直默认回车即可
+   - 使用`scp -r id_rsa.pub root@1.2.3.4:/root/.ssh/authorized_keys`命令将公钥上传到服务器（root后的1.2.3.4使用自己的远程服务器B得公网IP来替代）
+   - 使用`ssh root@1.2.3.4`来验证能否免密登录远程服务器B，若不需要输入密码即为成功。
+5. 在gitlab的settings->CI/CD->Variables下新增一个`SSH_PRIVATE_KEY`变量，用来存储私钥。将本机中~/.ssh/id_rsa下的内容复制为该变量的值。后续编写.gitlab-ci.yml需要用到。
+6. 在前端项目目录下新增一个.gitlab-ci.yml文件，添加以下内容，用来下载依赖、编译和部署
+   ```yaml
+   image: node:latest
+   
+   stages:
+       - install
+       - init-code
+       - build
+       - deploy
+   
+   cache:
+       key:
+           files:
+               - package-lock.json
+       paths:
+           - node_modules
+   
+   job_install:
+       stage: install
+       tags:
+           - personal
+       script:
+           - npm install
+   
+   job_build:
+       stage: build
+       tags:
+           - personal
+       script:
+           - npm run build
+       artifacts:
+           paths:
+               - dist
+   
+   job_deploy:
+       stage: deploy
+       tags:
+           - personal
+       before_script:
+           - 'which ssh-agent || ( yum update -y && yum install openssh-client git -y ) '
+           - eval $(ssh-agent -s)
+           - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+           - mkdir -p ~/.ssh
+           - chmod 700 ~/.ssh
+           - ssh-keyscan xxxxx >> ~/.ssh/known_hosts  //xxxx替换为远程服务器的地址
+           - chmod 644 ~/.ssh/known_hosts
+       script:
+           - scp -r dist root@xxxxx:/usr/local/www
+   ```
+7. 提交修改后就会自动触发部署，部署成功后结果如下![在这里插入图片描述](https://img-blog.csdnimg.cn/3e8bf2126a0d49f59a4fae3ba79d5553.png?x-oss-process=image/watermark,type_d3F5LXplbmhlaQ,shadow_50,text_Q1NETiBAVHJ1dGjjgIE=,size_20,color_FFFFFF,t_70,g_se,x_16#pic_center)
+8. 连接远程服务器，以root身份登入，使用`apt install docker.io`命令在远程服务器中安装docker
+9. 安装完成后`docker run -p 8080:80 -d -v /usr/local/www/dist:/usr/share/nginx/html nginx`为项目配置运行的端口
+10. 完成后访问`服务器公网IP地址:/8080`就可以看到项目啦！
+
+# 部署后端项目
+
+**补充后端springboot项目上传到服务器并启动的.gitlab-ci.yml代码：**
+```yaml
+# 定义一些变量
+variables:
+     server_ip: xxxxxxxx
+     jar_name: demo-0.0.1-SNAPSHOT.jar
+     java_path: /usr/local/java1.8/bin
+     upload_path: /usr/local/gitlab-project
+ 
+stages:
+     - build
+     - upload
+     - deploy
+ 
+# 使用 maven 镜像打包项目
+maven-build:
+     stage: build
+     image: maven:3-jdk-8
+     script:
+     - mvn package -B -Dmaven.test.skip=true
+     cache:
+          key: m2-repo
+          paths:
+               - .m2/repository
+     artifacts:
+       paths:
+         - target/$jar_name
+     tags:
+          - backend
+ 
+
+upload-jar:
+     stage: upload
+     tags:
+          - backend
+     before_script:
+        - 'which ssh-agent || ( yum update -y && yum install openssh-client git -y ) '
+        - eval $(ssh-agent -s)
+        - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+        - mkdir -p ~/.ssh
+        - chmod 700 ~/.ssh
+        - ssh-keyscan $server_ip >> ~/.ssh/known_hosts
+        - chmod 644 ~/.ssh/known_hosts
+     script:
+          - ls -l target/
+          - scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no target/$jar_name root@$server_ip:$upload_path/$jar_name
+ 
+# 启动 SpringBoot jar包
+deploy-test:
+     stage: deploy
+     tags:
+          - backend
+     before_script:
+        - 'which ssh-agent || ( yum update -y && yum install openssh-client git -y ) '
+        - eval $(ssh-agent -s)
+        - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+        - mkdir -p ~/.ssh
+        - chmod 700 ~/.ssh
+        - ssh-keyscan $server_ip >> ~/.ssh/known_hosts
+        - chmod 644 ~/.ssh/known_hosts
+     script:
+          - ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "nohup java -jar $upload_path/$jar_name --server.port=8081 >/dev/null 2>&1 &"
+
+```
+一些说明：
+ - `server_ip`需要使用远程服务器的公网ip地址来替换
+ - `SSH_PRIVATE_KEY`与前端项目部署时创建变量一样
+ - `"nohup java -jar $upload_path/$jar_name --server.port=8081 >/dev/null 2>&1 &"`是上传jar包成功后在服务器端执行的命令，该命令可以启动jar包对应的springboot项目且保持不关闭
+ - 因为前端绑定了8080端口号，所以这儿使用`--server.port=8081`将后端部署在8081端口
+ - 需要提前在远程服务器的/usr/local目录下创建gitlab-project目录
+	 - 若要使用代码在远程服务器上自动创建gitlab-project目录，首先需要一个shell脚本test.sh，并放在项目根目录下
+		```bash
+		#!/bin/bash
+		# 判断传入的参数的个数是不是一个
+		if [ ! $# -eq 1  ];then
+		  echo param error!
+		  exit 1
+		fi
+		
+		# 判断目录是不是已经存在，如果不存在则创建，存在则输出“dir exist” 
+		dirname=$1
+		echo "the dir name is $dirname"
+		if [ ! -d $dirname  ];then
+		  mkdir $dirname
+		else
+		  echo dir exist
+		fi
+		```
+	- gitlab-ci.yml代码修改如下：
+		```yaml
+		// 将test.sh脚本发到服务器上
+		- scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no test.sh root@$server_ip:/usr/local
+		// 执行test.sh脚本创建目标目录
+		- ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "sh /usr/local/test.sh /usr/local/gitlab-project"
+	
+		- scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no target/$jar_name root@$server_ip:$upload_path/$jar_name
+		
+		```
+ - 变量中的`jar_name`的值需要对应的改成自己的项目打成jar包后的名字，否则会找不到jar包的位置。一般命名为pom.xml下的artifactId标签的xxx加上version标签的内容。如这儿就是`xxx-0.0.1-SNAPSHOT.jar`
+	```xml
+	<artifactId>xxx</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	```
+ - 后端若进行多次部署的话需要手动重启，使用如下命令
+	```bash
+	netstat -tunlp | grep 8081  // 查看8081端口对应的进程号
+	kill -9 pid // 将8081端口对应的进程杀掉
+	cd /usr/local/gitlab-project // 进入jar包所在的目录
+	nohup java -jar backend-crowdsourcedtesting-0.0.1-SNAPSHOT.jar --server.port=8081 >/dev/null 2>&1 &   // 启动jar包
+	```	
+	 - 若要自动杀死进程并重启jar包，请在.gitlab-ci.yml使用以下命令：
+		```yaml
+		// 自动杀死8081端口对应的进程
+		- ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "netstat -tunlp|grep 8081|awk '{print \$7}'|cut -d '/' -f 1|xargs test -z || netstat -tunlp|grep 8081|awk '{print \$7}'|cut -d '/' -f 1|xargs kill"
+		// 重启服务
+		- ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "nohup java -jar $upload_path/$jar_name --server.port=8081 >/dev/null 2>&1 &"
+		```
+	 
+
+## 部署后端测试报告
+这部分我们对后端项目进行测试，并产生 html 形式的测试报告，部署到服务器的8083端口。
+1. 测试报告plugin：
+   ```xml
+   <plugin>
+       <groupId>org.apache.maven.plugins</groupId>
+       <artifactId>maven-surefire-report-plugin</artifactId>
+       <configuration>
+           <showSuccess>false</showSuccess>
+       </configuration>
+   </plugin>
+   ```
+   测试覆盖率报告plugin：
+   ```xml
+   <plugin>
+       <groupId>org.jacoco</groupId>
+       <artifactId>jacoco-maven-plugin</artifactId>
+       <version>0.7.7.201606060606</version>
+       <configuration>
+           <destFile>target/coverage-reports/jacoco-unit.exec</destFile>
+           <dataFile>target/coverage-reports/jacoco-unit.exec</dataFile>
+       </configuration>
+       <executions>
+           <execution>
+               <id>jacoco-initialize</id>
+               <goals>
+                   <goal>prepare-agent</goal>
+               </goals>
+           </execution>
+           <execution>
+               <id>jacoco-site</id>
+               <phase>package</phase>
+               <goals>
+                   <goal>report</goal>
+               </goals>
+           </execution>
+       </executions>
+   </plugin>
+   ```
+2. 这时候我们在项目目录下运行`mvn surefire-report:report`命令就会在项目的target/site目录下生成surefire-report.html文件，即是我们需要的测试报告文件。
+3. 在项目目录下运行`mvn clean test jacoco:report`命令就会在项目的target/site/jacoco目录下生成index.html文件，即我们需要的测试覆盖率报告文件。
+4. 接下去就是将surefire-report.html和index.html部署到服务器上
+5. 新增一个测试阶段：
+   ```yaml
+   stages:
+        - build
+        - test
+        - upload
+        - deploy
+   ```
+6. 测试阶段的配置代码如下。首先运行`mvn surefire-report:report`命令在target/site/目录下生成测试报告surefire-report.html，将它发送到服务器上的`$test_path`路径下（==注意需要将名字改为index.html，否则使用nginx部署后会出现403 Forbidden==）
+   ```yaml
+   test:
+        stage: test
+        image: maven:3-jdk-8
+        tags:
+             - backend
+        before_script:
+           - 'which ssh-agent || ( yum update -y && yum install openssh-client git -y ) '
+           - eval $(ssh-agent -s)
+           - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+           - mkdir -p ~/.ssh
+           - chmod 700 ~/.ssh
+           - ssh-keyscan 124.222.139.8 >> ~/.ssh/known_hosts
+           - chmod 644 ~/.ssh/known_hosts
+        script:
+           - mvn surefire-report:report
+           - ls -l target/site/
+           - scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no test.sh root@$server_ip:/usr/local
+    		- ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "sh /usr/local/test.sh /usr/local/testHtml"
+    		- scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no target/site/surefire-report.html root@$server_ip:$test_path/index.html
+    		- mvn clean test jacoco:report
+    		- ls -l target/site/
+ 			- ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "sh /usr/local/test.sh /usr/local/jacocoHtml"
+    		- scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no target/site/jacoco/index.html root@$server_ip:$jacoco_path/index.html
+
+   ```
+7. 在服务器上运行` docker run -p 8083:80 -d -v $test_path:/usr/share/nginx/html nginx`命令即可将测试报告对应的页面挂载到服务器的8083端口。
+8. 在服务器上运行` docker run -p 8086:80 -d -v $jacoco_path:/usr/share/nginx/html nginx`命令即可将测试覆盖率报告对应的页面挂载到服务器的8086端口。
+
+
+最终完整的gitlab配置如下：
+
+```yaml
+# 定义一些变量, 下面各阶段会使用
+variables:
+  server_ip: xxxxxx
+  jar_name: backend-crowdsourcedtesting-0.0.1-SNAPSHOT.jar
+  java_path: /usr/local/java1.8/bin
+  upload_path: /usr/local/gitlab-project
+  test_path: /usr/local/testHtml
+  jacoco_path: /usr/local/jacocoHtml
+
+
+
+# 定义执行的各个阶段及顺序
+stages:
+  - build
+  - test
+  - upload
+  - deploy
+
+
+# 使用 maven 镜像打包项目
+maven-build:
+  stage: build
+  image: maven:3-jdk-8
+  script:
+    - mvn package -B -Dmaven.test.skip=true
+  cache:
+    key: m2-repo
+    paths:
+      - .m2/repository
+  artifacts:
+    paths:
+      - target/$jar_name
+  tags:
+    - backend
+
+test:
+  stage: test
+  image: maven:3-jdk-8
+  tags:
+    - backend
+  before_script:
+    - 'which ssh-agent || ( yum update -y && yum install openssh-client git -y ) '
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan xxxxxx >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - mvn surefire-report:report
+    - ls -l target/site/
+    - scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no test.sh root@$server_ip:/usr/local
+    - ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "sh /usr/local/test.sh /usr/local/testHtml"
+    - scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no target/site/surefire-report.html root@$server_ip:$test_path/index.html
+    - mvn clean test jacoco:report
+    - ls -l target/site/
+ 	- ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "sh /usr/local/test.sh /usr/local/jacocoHtml"
+    - scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no target/site/jacoco/index.html root@$server_ip:$jacoco_path/index.html
+
+
+# 上传生成的 jar 包到你的应用服务器，这里使用 ictu/sshpass 这个镜像，是为了使用 sshpass 命令
+upload-jar:
+  stage: upload
+  tags:
+    - backend
+  before_script:
+    - 'which ssh-agent || ( yum update -y && yum install openssh-client git -y ) '
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan 124.222.139.8 >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - ls -l target/
+    - ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "sh /usr/local/test.sh /usr/local/gitlab-project"
+    - scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no target/$jar_name root@$server_ip:$upload_path/$jar_name
+
+
+# 启动 SpringBoot jar包
+deploy-test:
+  stage: deploy
+  tags:
+    - backend
+  before_script:
+    - 'which ssh-agent || ( yum update -y && yum install openssh-client git -y ) '
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan 124.222.139.8 >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "netstat -tunlp|grep 8081|awk '{print \$7}'|cut -d '/' -f 1|xargs test -z || netstat -tunlp|grep 8081|awk '{print \$7}'|cut -d '/' -f 1|xargs kill"
+  after_script:
+    - ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "nohup java -jar $upload_path/$jar_name --server.port=8081 >/dev/null 2>&1 &"
+
+```
+
