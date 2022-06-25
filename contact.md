@@ -1,8 +1,8 @@
 ---
 layout: page
-title: 分类
+title: Categories
 tagline: Create a contact form and you are good to go
-ref: 分类
+ref: Categories
 order: 1
 ---
 
