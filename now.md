@@ -1,9 +1,9 @@
 ---
 layout: page
-title: 标签
+title: label
 tagline: What I'm doing now
-permalink: /now.html
-ref: 标签
+permalink: /label.html
+ref: label
 order: 2
 ---
 
