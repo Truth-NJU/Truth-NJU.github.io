@@ -258,12 +258,12 @@ deploy-test:
            - mvn surefire-report:report
            - ls -l target/site/
            - scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no test.sh root@$server_ip:/usr/local
-    		- ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "sh /usr/local/test.sh /usr/local/testHtml"
-    		- scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no target/site/surefire-report.html root@$server_ip:$test_path/index.html
-    		- mvn clean test jacoco:report
-    		- ls -l target/site/
- 			- ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "sh /usr/local/test.sh /usr/local/jacocoHtml"
-    		- scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no target/site/jacoco/index.html root@$server_ip:$jacoco_path/index.html
+    	   - ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "sh /usr/local/test.sh /usr/local/testHtml"
+           - scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no target/site/surefire-report.html root@$server_ip:$test_path/index.html
+           - mvn clean test jacoco:report
+    	   - ls -l target/site/
+ 	   - ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "sh /usr/local/test.sh /usr/local/jacocoHtml"
+    	   - scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no target/site/jacoco/index.html root@$server_ip:$jacoco_path/index.html
 
    ```
 7. 在服务器上运行` docker run -p 8083:80 -d -v $test_path:/usr/share/nginx/html nginx`命令即可将测试报告对应的页面挂载到服务器的8083端口。
@@ -329,7 +329,7 @@ test:
     - scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no target/site/surefire-report.html root@$server_ip:$test_path/index.html
     - mvn clean test jacoco:report
     - ls -l target/site/
- 	- ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "sh /usr/local/test.sh /usr/local/jacocoHtml"
+    - ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "sh /usr/local/test.sh /usr/local/jacocoHtml"
     - scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no target/site/jacoco/index.html root@$server_ip:$jacoco_path/index.html
 
 
