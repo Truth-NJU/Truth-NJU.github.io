@@ -1,9 +1,8 @@
 **在这篇文章中我们使用gitlab runner+CI/CD实现前后端项目以及对应测试报告的自动化部署**
-* TOC
-{:toc}
+
 
 # 部署前端项目
-1. 首先我们使用电脑本机下载安装gitlab runner，这里将本机称为服务器A。(==电脑本机为mac环境，不同操作系统下面的命令可能会有差别。==)
+1. 首先我们使用电脑本机下载安装gitlab runner，这里将本机称为服务器A。(电脑本机为mac环境，不同操作系统下面的命令可能会有差别。)
 2. 使用`gitlab-runner register  `命令在gitlab网站上注册gitlab runner，填入settings->CI/CD->Runners下的URL和token。结果如如下页面所示即为成功。
   ![在这里插入图片描述](https://img-blog.csdnimg.cn/c39c7811e0d04b558992ccc4246f8973.png?x-oss-process=image/watermark,type_d3F5LXplbmhlaQ,shadow_50,text_Q1NETiBAVHJ1dGjjgIE=,size_20,color_FFFFFF,t_70,g_se,x_16#pic_center)
 3. 接下去需要一台远程服务器B，这里以腾讯云的ubuntu服务器为例子。腾讯云的的ubuntu服务器默认为ubuntu账户，我们需要对其进行配置，以切换为root账户。
