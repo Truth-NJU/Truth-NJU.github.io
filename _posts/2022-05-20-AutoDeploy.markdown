@@ -1,4 +1,3 @@
-@[toc]
 # 部署前端项目
 1. 首先我们使用电脑本机下载安装gitlab runner，这里将本机称为服务器A。(==电脑本机为mac环境，不同操作系统下面的命令可能会有差别。==)
 2. 使用`gitlab-runner register  `命令在gitlab网站上注册gitlab runner，填入settings->CI/CD->Runners下的URL和token。结果如如下页面所示即为成功。
