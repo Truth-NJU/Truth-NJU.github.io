@@ -181,7 +181,7 @@ deploy-test:
 	nohup java -jar backend-crowdsourcedtesting-0.0.1-SNAPSHOT.jar --server.port=8081 >/dev/null 2>&1 &   // 启动jar包
 	```	
 	 - 若要自动杀死进程并重启jar包，请在.gitlab-ci.yml使用以下命令：
-		```yaml
+	 	```yaml
 		// 自动杀死8081端口对应的进程
 		- ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "netstat -tunlp|grep 8081|awk '{print \$7}'|cut -d '/' -f 1|xargs test -z || netstat -tunlp|grep 8081|awk '{print \$7}'|cut -d '/' -f 1|xargs kill"
 		// 重启服务
