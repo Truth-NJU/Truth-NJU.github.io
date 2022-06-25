@@ -179,15 +179,15 @@ deploy-test:
 	kill -9 pid // 将8081端口对应的进程杀掉
 	cd /usr/local/gitlab-project // 进入jar包所在的目录
 	nohup java -jar backend-crowdsourcedtesting-0.0.1-SNAPSHOT.jar --server.port=8081 >/dev/null 2>&1 &   // 启动jar包
-	```	
-	 - 若要自动杀死进程并重启jar包，请在.gitlab-ci.yml使用以下命令：
-	 	```yaml
-		// 自动杀死8081端口对应的进程
-		- ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "netstat -tunlp|grep 8081|awk '{print \$7}'|cut -d '/' -f 1|xargs test -z || netstat -tunlp|grep 8081|awk '{print \$7}'|cut -d '/' -f 1|xargs kill"
-		// 重启服务
-		- ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "nohup java -jar $upload_path/$jar_name --server.port=8081 >/dev/null 2>&1 &"
-		```
-	 
+	```		
+- 若要自动杀死进程并重启jar包，请在.gitlab-ci.yml使用以下命令：
+	 ```yaml
+	// 自动杀死8081端口对应的进程
+	- ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "netstat -tunlp|grep 8081|awk '{print \$7}'|cut -d '/' -f 1|xargs test -z || netstat -tunlp|grep 8081|awk '{print \$7}'|cut -d '/' -f 1|xargs kill"		
+	// 重启服务
+	- ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$s
+	- erver_ip "nohup java -jar $upload_path/$jar_name --server.port=8081 >/dev/null 2>&1 &"
+	```
 
 ## 部署后端测试报告
 这部分我们对后端项目进行测试，并产生 html 形式的测试报告，部署到服务器的8083端口。
@@ -264,7 +264,6 @@ deploy-test:
            - ls -l target/site/
            - ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "sh /usr/local/test.sh /usr/local/jacocoHtml"
  	   - scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no target/site/jacoco/index.html root@$server_ip:$jacoco_path/index.html
-
    ```
 7. 在服务器上运行` docker run -p 8083:80 -d -v $test_path:/usr/share/nginx/html nginx`命令即可将测试报告对应的页面挂载到服务器的8083端口。
 8. 在服务器上运行` docker run -p 8086:80 -d -v $jacoco_path:/usr/share/nginx/html nginx`命令即可将测试覆盖率报告对应的页面挂载到服务器的8086端口。
