@@ -131,7 +131,7 @@ deploy-test:
         - ssh-keyscan $server_ip >> ~/.ssh/known_hosts
         - chmod 644 ~/.ssh/known_hosts
      script:
-          - ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "nohup java -jar $upload_path/$jar_name --server.port=8081 >/dev/null 2>&1 &"
+        - ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "nohup java -jar $upload_path/$jar_name --server.port=8081 >/dev/null 2>&1 &"
 
 ```
 一些说明：
