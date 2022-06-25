@@ -1,9 +1,9 @@
 ---
 layout: page
-title: About
+title: 关于
 tagline: A few more words about this theme
 permalink: /about.html
-ref: about
+ref: 关于
 order: 0
 ---
 
