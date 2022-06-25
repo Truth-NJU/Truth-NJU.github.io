@@ -3,7 +3,7 @@ layout: page
 title: label
 tagline: What I'm doing now
 permalink: /label.html
-ref: label
+ref: Label
 order: 2
 ---
 
