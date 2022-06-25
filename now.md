@@ -1,6 +1,6 @@
 ---
 layout: page
-title: Now
+title: 标签
 tagline: What I'm doing now
 permalink: /now.html
 ref: 标签
