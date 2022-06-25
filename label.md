@@ -1,6 +1,6 @@
 ---
 layout: page
-title: label
+title: Label
 tagline: What I'm doing now
 permalink: /label.html
 ref: Label
