@@ -159,14 +159,12 @@ deploy-test:
 		fi
 		```
 	- gitlab-ci.yml代码修改如下：
-		```yaml
+		```xml
 		// 将test.sh脚本发到服务器上
-		- scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no test.sh root@$server_ip:/usr/local
+		scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no test.sh root@$server_ip:/usr/local
 		// 执行test.sh脚本创建目标目录
-		- ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "sh /usr/local/test.sh /usr/local/gitlab-project"
-	
-		- scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no target/$jar_name root@$server_ip:$upload_path/$jar_name
-		
+		ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "sh /usr/local/test.sh /usr/local/gitlab-project"
+		scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no target/$jar_name root@$server_ip:$upload_path/$jar_name
 		```
  - 变量中的`jar_name`的值需要对应的改成自己的项目打成jar包后的名字，否则会找不到jar包的位置。一般命名为pom.xml下的artifactId标签的xxx加上version标签的内容。如这儿就是`xxx-0.0.1-SNAPSHOT.jar`
 	```xml
@@ -181,12 +179,11 @@ deploy-test:
 	nohup java -jar backend-crowdsourcedtesting-0.0.1-SNAPSHOT.jar --server.port=8081 >/dev/null 2>&1 &   // 启动jar包
 	```		
 - 若要自动杀死进程并重启jar包，请在.gitlab-ci.yml使用以下命令：
-	 ```yaml
+	```xml
 	// 自动杀死8081端口对应的进程
-	- ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "netstat -tunlp|grep 8081|awk '{print \$7}'|cut -d '/' -f 1|xargs test -z || netstat -tunlp|grep 8081|awk '{print \$7}'|cut -d '/' -f 1|xargs kill"		
+	ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "netstat -tunlp|grep 8081|awk '{print \$7}'|cut -d '/' -f 1|xargs test -z || netstat -tunlp|grep 8081|awk '{print \$7}'|cut -d '/' -f 1|xargs kill"		
 	// 重启服务
-	- ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$s
-	- erver_ip "nohup java -jar $upload_path/$jar_name --server.port=8081 >/dev/null 2>&1 &"
+	ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no root@$server_ip "nohup java -jar $upload_path/$jar_name --server.port=8081 >/dev/null 2>&1 &"
 	```
 
 ## 部署后端测试报告
