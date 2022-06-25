@@ -1,7 +1,7 @@
 # Setup
 title:        Truth's Blog
 tagline:      代码，是写给人看的
-baseurl:      "https://truth-nju.github.io/"
+baseurl:      ""
 paginate:     1
 locale:       "en"
 
