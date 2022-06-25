@@ -27,4 +27,4 @@ plugins:
 target-blank:
     rel: nofollow
 
-header_page_refs: ['标签', '分类', '关于']
+header_page_refs: ['首页','标签','分类', '关于']
